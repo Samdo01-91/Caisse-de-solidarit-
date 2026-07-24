@@ -196,6 +196,7 @@
     <button data-tab="aides">Aides</button>
     <button data-tab="finances">Finances</button>
     <button data-tab="releves">Relevés</button>
+    <button data-tab="impression">Impression</button>
     <button data-tab="admin">Administration</button>
   </nav>
 </header>
@@ -340,6 +341,61 @@
     </div>
   </section>
 
+  <!-- IMPRESSION -->
+  <section class="view" id="view-impression">
+    <h2 class="section-title">Impression</h2>
+    <p class="section-sub">Générez les documents PDF à imprimer ou archiver.</p>
+
+    <div class="panel">
+      <h3>Liste des membres</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Nom, établissement, statut et situation de cotisation de chaque membre.</p>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportMembersPDF()">Imprimer la liste des membres</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Point des cotisations</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Laissez vide pour inclure toutes les cotisations depuis le début.</p>
+      <div class="form-row">
+        <div><label>Mois (optionnel)</label><input id="pcMois" type="month"></div>
+      </div>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportCotisationsPDF()">Imprimer le point des cotisations</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Point des aides</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Laissez vide pour inclure toutes les aides versées depuis le début.</p>
+      <div class="form-row">
+        <div><label>Mois (optionnel)</label><input id="paMois" type="month"></div>
+      </div>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportAidesPDF()">Imprimer le point des aides</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Point financier — par mois</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Cotisations, aides et dépenses d'un mois précis, avec solde du mois.</p>
+      <div class="form-row">
+        <div><label>Mois concerné</label><input id="pfMois" type="month"></div>
+      </div>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportPointFinancierPDF()">Imprimer le point financier du mois</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Point financier global</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Bilan complet de la caisse depuis sa création.</p>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportPointFinancierGlobalPDF()">Imprimer le point financier global</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ADMIN -->
   <section class="view" id="view-admin">
     <h2 class="section-title">Administration</h2>
@@ -373,8 +429,8 @@
 
 <script>
 /* ---------- Data note ----------
-   Les données de cette caisse sont partagées : tous les membres qui ouvrent
-   cet artefact voient et modifient le même registre.
+   Les données sont enregistrées uniquement sur cet appareil (localStorage).
+   Chaque personne qui installe l'application a son propre registre, non partagé.
 ------------------------------------ */
 
 const LOGO_DATA_URL = "data:image/jpeg;base64,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";
@@ -396,10 +452,10 @@ function showToast(msg){
 
 async function loadData(){
   try{
-    const res = await window.storage.get('caisse-data', true);
-    if(res && res.value){ data = JSON.parse(res.value); }
+    const raw = localStorage.getItem('caisse-data');
+    if(raw){ data = JSON.parse(raw); }
   }catch(e){
-    console.log('Aucune donnée existante, initialisation d\'un nouveau registre.');
+    console.log('Aucune donnée existante sur cet appareil, initialisation d\'un nouveau registre.');
   }
   hydrateForm();
   renderAll();
@@ -407,11 +463,10 @@ async function loadData(){
 
 async function saveData(){
   try{
-    const res = await window.storage.set('caisse-data', JSON.stringify(data), true);
-    if(!res){ showToast('Erreur : sauvegarde impossible'); }
+    localStorage.setItem('caisse-data', JSON.stringify(data));
   }catch(e){
     console.error(e);
-    showToast('Erreur de sauvegarde — vérifiez la connexion');
+    showToast('Erreur de sauvegarde sur cet appareil');
   }
 }
 
@@ -685,6 +740,8 @@ function renderFinances(){
     <div class="card negative"><div class="label">Total sorties (aides)</div><div class="value small">${fmt(t.totAides)}</div></div>
     <div class="card negative"><div class="label">Total dépenses</div><div class="value small">${fmt(t.totDep)}</div></div>
   `;
+  const pfMois = document.getElementById('pfMois');
+  if(pfMois && !pfMois.value) pfMois.value = thisMonth();
   renderDepensesTable();
 }
 
@@ -754,10 +811,10 @@ function addPdfWatermark(doc){
   }
 }
 
-function addPdfHeader(doc){
+function addPdfHeader(doc, title){
   doc.addImage(LOGO_DATA_URL, 'JPEG', 14, 10, 16, 23.8);
   doc.setFont('helvetica','bold'); doc.setFontSize(15);
-  doc.text(`Relevé — ${data.appName || 'Caisse de Solidarité'}`, 36, 18);
+  doc.text(title || `Relevé — ${data.appName || 'Caisse de Solidarité'}`, 36, 18);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
   doc.text(`Édité le ${new Date().toLocaleDateString('fr-FR')}`, 36, 25);
 }
@@ -770,13 +827,218 @@ function addPdfFooter(doc){
   doc.setTextColor(0);
 }
 
+function exportMembersPDF(){
+  if(data.members.length===0){ showToast('Aucun membre à imprimer'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Liste des membres — ${data.appName || 'Caisse de Solidarité'}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+  const rows = data.members.map(m=>[
+    m.nom, m.etab||'—', m.tel||'—', m.dateAdh||'—',
+    m.statut==='suspendu' ? 'Suspendu' : 'Actif',
+    isAJour(m.id) ? 'À jour' : 'En retard'
+  ]);
+  doc.autoTable({
+    head:[['Nom','Établissement','Téléphone','Adhésion','Statut','Cotisation']],
+    body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+  doc.save(`liste-membres-${todayISO()}.pdf`);
+  log('Impression de la liste des membres');
+  saveData();
+}
+
+function exportPointFinancierPDF(){
+  const mois = document.getElementById('pfMois').value;
+  if(!mois){ showToast('Choisissez un mois'); return; }
+  const label = new Date(mois+'-01').toLocaleDateString('fr-FR',{month:'long', year:'numeric'});
+
+  const cotisMois = data.cotisations.filter(c=>c.periode===mois);
+  const aidesMois = data.aides.filter(a=>a.date.slice(0,7)===mois);
+  const depensesMois = data.depenses.filter(d=>d.date.slice(0,7)===mois);
+
+  const totCotisMois = cotisMois.reduce((s,c)=>s+c.montant,0);
+  const totAidesMois = aidesMois.reduce((s,a)=>s+a.montant,0);
+  const totDepMois = depensesMois.reduce((s,d)=>s+d.montant,0);
+  const soldeMois = totCotisMois - totAidesMois - totDepMois;
+
+  const t = totals();
+  const actifs = data.members.filter(m=>m.statut==='actif');
+  const aJourMois = actifs.filter(m=>data.cotisations.some(c=>c.membreId===m.id && c.periode===mois)).length;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Point financier — ${label}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Résumé du mois', 14, 45);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  const resume = [
+    ['Cotisations collectées ce mois', fmt(totCotisMois)],
+    ['Aides versées ce mois', fmt(totAidesMois)],
+    ['Dépenses ce mois', fmt(totDepMois)],
+    ['Solde du mois (cotis. - aides - dépenses)', fmt(soldeMois)],
+    ['Membres à jour ce mois', `${aJourMois} / ${actifs.length}`],
+    ['Solde global de la caisse (cumulé)', fmt(t.solde)],
+  ];
+  doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
+    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
+
+  let y = doc.lastAutoTable.finY + 8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Cotisations du mois', 14, y);
+  doc.autoTable({
+    startY: y+4,
+    head:[['Membre','Type','Montant']],
+    body: cotisMois.length ? cotisMois.map(c=>{
+      const m = data.members.find(x=>x.id===c.membreId);
+      return [m?m.nom:'—', c.type, fmt(c.montant)];
+    }) : [['Aucune cotisation ce mois','','']],
+    styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}
+  });
+
+  y = doc.lastAutoTable.finY + 8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Aides versées', 14, y);
+  doc.autoTable({
+    startY: y+4,
+    head:[['Membre','Motif','Montant']],
+    body: aidesMois.length ? aidesMois.map(a=>{
+      const m = data.members.find(x=>x.id===a.membreId);
+      return [m?m.nom:'—', motifLabels[a.motif], fmt(a.montant)];
+    }) : [['Aucune aide ce mois','','']],
+    styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}
+  });
+
+  y = doc.lastAutoTable.finY + 8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Dépenses', 14, y);
+  doc.autoTable({
+    startY: y+4,
+    head:[['Description','Montant']],
+    body: depensesMois.length ? depensesMois.map(d=>[d.description, fmt(d.montant)]) : [['Aucune dépense ce mois','']],
+    styles:{fontSize:9}, headStyles:{fillColor:[184,137,43]},
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+  addPdfFooter(doc);
+
+  doc.save(`point-financier-${mois}.pdf`);
+  log(`Impression du point financier de ${label}`);
+  saveData();
+}
+
+function exportCotisationsPDF(){
+  const mois = document.getElementById('pcMois').value;
+  const rows = data.cotisations
+    .filter(c => !mois || c.periode===mois)
+    .sort((a,b)=> a.date.localeCompare(b.date));
+  if(rows.length===0){ showToast('Aucune cotisation à imprimer'); return; }
+  const label = mois ? new Date(mois+'-01').toLocaleDateString('fr-FR',{month:'long', year:'numeric'}) : 'toutes périodes';
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Point des cotisations — ${label}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+  const total = rows.reduce((s,c)=>s+c.montant,0);
+  doc.autoTable({
+    startY: 38,
+    head:[['Date','Membre','Type','Période','Montant']],
+    body: rows.map(c=>{
+      const m = data.members.find(x=>x.id===c.membreId);
+      return [c.date, m?m.nom:'—', c.type, c.periode, fmt(c.montant)];
+    }),
+    foot:[['','','','Total', fmt(total)]],
+    styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+  doc.save(`point-cotisations-${mois||'toutes-periodes'}.pdf`);
+  log(`Impression du point des cotisations (${label})`);
+  saveData();
+}
+
+function exportAidesPDF(){
+  const mois = document.getElementById('paMois').value;
+  const rows = data.aides
+    .filter(a => !mois || a.date.slice(0,7)===mois)
+    .sort((a,b)=> a.date.localeCompare(b.date));
+  if(rows.length===0){ showToast('Aucune aide à imprimer'); return; }
+  const label = mois ? new Date(mois+'-01').toLocaleDateString('fr-FR',{month:'long', year:'numeric'}) : 'toutes périodes';
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Point des aides — ${label}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+  const total = rows.reduce((s,a)=>s+a.montant,0);
+  doc.autoTable({
+    startY: 38,
+    head:[['Date','Membre','Motif','Montant']],
+    body: rows.map(a=>{
+      const m = data.members.find(x=>x.id===a.membreId);
+      return [a.date, m?m.nom:'—', motifLabels[a.motif], fmt(a.montant)];
+    }),
+    foot:[['','','Total', fmt(total)]],
+    styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+  doc.save(`point-aides-${mois||'toutes-periodes'}.pdf`);
+  log(`Impression du point des aides (${label})`);
+  saveData();
+}
+
+function exportPointFinancierGlobalPDF(){
+  const t = totals();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Point financier global — ${data.appName || 'Caisse de Solidarité'}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Bilan global depuis la création', 14, 45);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  const resume = [
+    ['Total des cotisations collectées', fmt(t.totCotis)],
+    ['Total des aides versées', fmt(t.totAides)],
+    ['Total des dépenses', fmt(t.totDep)],
+    ['Solde global de la caisse', fmt(t.solde)],
+    ['Membres actifs', `${t.actifs}`],
+    ['Membres à jour ce mois-ci', `${t.aJour} / ${t.actifs}`],
+    ['Membres en retard ce mois-ci', `${t.enRetard} / ${t.actifs}`],
+  ];
+  doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
+    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
+
+  let y = doc.lastAutoTable.finY + 8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Évolution des cotisations par mois', 14, y);
+  const parMois = {};
+  data.cotisations.forEach(c=>{ parMois[c.periode] = (parMois[c.periode]||0) + c.montant; });
+  const moisTries = Object.keys(parMois).sort();
+  doc.autoTable({
+    startY: y+4,
+    head:[['Mois','Total cotisations']],
+    body: moisTries.length ? moisTries.map(mo => [mo, fmt(parMois[mo])]) : [['Aucune cotisation enregistrée','']],
+    styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]},
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+  addPdfFooter(doc);
+
+  doc.save(`point-financier-global-${todayISO()}.pdf`);
+  log('Impression du point financier global');
+  saveData();
+}
+
 function exportPDF(){
   const ops = filteredOperations();
   if(ops.length===0){ showToast('Aucune opération à exporter'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  const title = `Relevé — ${data.appName || 'Caisse de Solidarité'}`;
   addPdfWatermark(doc);
-  addPdfHeader(doc);
+  addPdfHeader(doc, title);
   let solde = 0;
   const rows = ops.map(op=>{
     solde += op.montant;
@@ -785,7 +1047,7 @@ function exportPDF(){
   doc.autoTable({
     head:[['Date','Membre','Description','Montant','Solde cumulé']],
     body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
   });
   doc.save(`releve-caisse-${todayISO()}.pdf`);
   log('Export PDF du relevé');
