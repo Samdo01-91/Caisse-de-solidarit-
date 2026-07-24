@@ -417,6 +417,13 @@
       <h3>Journal des opérations</h3>
       <div id="journalList"></div>
     </div>
+    <div class="panel" style="border-color:var(--brick);">
+      <h3 style="color:var(--brick);">Zone sensible</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Supprime définitivement tous les membres, cotisations, aides et dépenses de cet appareil. Utile pour effacer des données d'essai avant la mise en service réelle. Cette action est irréversible.</p>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn" style="background:var(--brick);" onclick="resetAllData()">Réinitialiser toutes les données</button>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -512,9 +519,17 @@ function toggleSuspend(id){
 function removeMember(id){
   const m = data.members.find(x=>x.id===id);
   if(!m) return;
-  if(!confirm(`Retirer définitivement "${m.nom}" du registre ?`)) return;
+  const nbCotis = data.cotisations.filter(c=>c.membreId===id).length;
+  const nbAides = data.aides.filter(a=>a.membreId===id).length;
+  let message = `Retirer définitivement "${m.nom}" du registre ?`;
+  if(nbCotis || nbAides){
+    message += ` Ses ${nbCotis} cotisation(s) et ${nbAides} aide(s) enregistrées seront aussi supprimées.`;
+  }
+  if(!confirm(message)) return;
   data.members = data.members.filter(x=>x.id!==id);
-  log(`Retrait du membre "${m.nom}"`);
+  data.cotisations = data.cotisations.filter(c=>c.membreId!==id);
+  data.aides = data.aides.filter(a=>a.membreId!==id);
+  log(`Retrait du membre "${m.nom}" (et de ses cotisations/aides associées)`);
   saveData(); renderAll();
 }
 
@@ -1102,6 +1117,18 @@ function saveOfficers(){
   log('Mise à jour du bureau de la caisse');
   saveData();
   showToast('Bureau mis à jour');
+}
+
+function resetAllData(){
+  if(!confirm('Êtes-vous sûr de vouloir supprimer TOUTES les données (membres, cotisations, aides, dépenses) ? Cette action est irréversible.')) return;
+  if(!confirm('Dernière confirmation : toutes les données seront définitivement perdues sur cet appareil. Continuer ?')) return;
+  data.members = [];
+  data.cotisations = [];
+  data.aides = [];
+  data.depenses = [];
+  data.journal = [{ date: new Date().toISOString(), action: 'Réinitialisation complète des données' }];
+  saveData(); renderAll();
+  showToast('Toutes les données ont été réinitialisées');
 }
 
 function renderJournal(){
