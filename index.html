@@ -950,7 +950,7 @@ function exportPointFinancierPDF(){
   doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
     columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
 
-  let y = doc.lastAutoTable.finY + 8;
+  let y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Cotisations du mois', 14, y);
   doc.autoTable({
@@ -963,7 +963,7 @@ function exportPointFinancierPDF(){
     styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}
   });
 
-  y = doc.lastAutoTable.finY + 8;
+  y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Aides versées', 14, y);
   doc.autoTable({
@@ -976,7 +976,7 @@ function exportPointFinancierPDF(){
     styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}
   });
 
-  y = doc.lastAutoTable.finY + 8;
+  y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Dépenses', 14, y);
   doc.autoTable({
@@ -1075,7 +1075,7 @@ function exportPointFinancierGlobalPDF(){
   doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
     columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
 
-  let y = doc.lastAutoTable.finY + 8;
+  let y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Évolution des cotisations par mois', 14, y);
   const parMois = {};
