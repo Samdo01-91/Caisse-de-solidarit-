@@ -487,7 +487,7 @@ let chartRef = null;
 
 document.getElementById('brandLogoImg').src = LOGO_DATA_URL;
 // favicon set via static icon-192.png file
-const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n||0)) + ' FCFA';
+const fmt = n => new Intl.NumberFormat('fr-FR').format(Math.round(n||0)).replace(/[\u202F\u00A0]/g, ' ') + ' FCFA';
 const todayISO = () => new Date().toISOString().slice(0,10);
 const thisMonth = () => new Date().toISOString().slice(0,7);
 
