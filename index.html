@@ -206,6 +206,13 @@
   }
   #view-dashboard > *{ position:relative; z-index:1; }
 
+  .backup-banner{
+    display:none; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    background:var(--gold); color:#2b2200; padding:10px 16px; font-size:13px; font-weight:500;
+    position:sticky; top:0; z-index:19;
+  }
+  .backup-banner.show{ display:flex; }
+
   @media (max-width:640px){
     .brand-text h1{font-size:18px;}
     main{padding:18px 12px 70px 12px;}
@@ -234,6 +241,14 @@
     <button data-tab="admin">Administration</button>
   </nav>
 </header>
+
+<div class="backup-banner" id="backupBanner">
+  <span>📦 Sauvegarde du jour non faite — protégez vos données en cas de perte du téléphone.</span>
+  <div style="display:flex; gap:8px; flex-shrink:0;">
+    <button class="btn small gold" onclick="telechargerSauvegardeDepuisBanniere()">Télécharger maintenant</button>
+    <button class="btn small outline" onclick="reporterBanniereSauvegarde()">Plus tard</button>
+  </div>
+</div>
 
 <main>
 
@@ -462,6 +477,22 @@
       <h3>Journal des opérations</h3>
       <div id="journalList"></div>
     </div>
+    <div class="panel">
+      <h3>Sauvegarde et restauration</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Téléchargez une copie de sécurité régulièrement (à garder sur Google Drive, par email, ou envoyée à vous-même sur WhatsApp). En cas de perte ou de changement de téléphone, restaurez-la sur la nouvelle installation de l'application.</p>
+      <div class="action-row" style="justify-content:flex-start; margin-bottom:14px;">
+        <button class="btn gold" onclick="telechargerSauvegarde()">Télécharger une sauvegarde</button>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Restaurer depuis un fichier de sauvegarde (.json)</label>
+          <input type="file" id="fichierSauvegarde" accept="application/json,.json">
+        </div>
+      </div>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn outline" onclick="restaurerSauvegarde()">Restaurer cette sauvegarde</button>
+      </div>
+    </div>
     <div class="panel" style="border-color:var(--brick);">
       <h3 style="color:var(--brick);">Zone sensible</h3>
       <p class="section-sub" style="margin-bottom:12px;">Supprime définitivement tous les membres, cotisations, aides et dépenses de cet appareil. Utile pour effacer des données d'essai avant la mise en service réelle. Cette action est irréversible.</p>
@@ -530,6 +561,7 @@ async function loadData(){
   }
   hydrateForm();
   renderAll();
+  verifierRappelSauvegarde();
 }
 
 async function saveData(){
@@ -1287,6 +1319,81 @@ function saveOfficers(){
   log('Mise à jour du bureau de la caisse');
   saveData();
   showToast('Bureau mis à jour');
+}
+
+function telechargerSauvegarde(){
+  const contenu = JSON.stringify(data, null, 2);
+  const blob = new Blob([contenu], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sauvegarde-caisse-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  localStorage.setItem('dernierBackupAuto', todayISO());
+  log('Téléchargement d\'une sauvegarde des données');
+  saveData();
+  showToast('Sauvegarde téléchargée');
+}
+
+function telechargerSauvegardeDepuisBanniere(){
+  telechargerSauvegarde();
+  document.getElementById('backupBanner').classList.remove('show');
+}
+
+function reporterBanniereSauvegarde(){
+  document.getElementById('backupBanner').classList.remove('show');
+  localStorage.setItem('backupReporteLe', todayISO());
+}
+
+function verifierRappelSauvegarde(){
+  const aDesDonnees = data.members.length>0 || data.cotisations.length>0 || data.aides.length>0 || data.depenses.length>0;
+  if(!aDesDonnees) return;
+  const dernier = localStorage.getItem('dernierBackupAuto');
+  const reporte = localStorage.getItem('backupReporteLe');
+  const aujourdHui = todayISO();
+  if(dernier !== aujourdHui && reporte !== aujourdHui){
+    document.getElementById('backupBanner').classList.add('show');
+  }
+}
+
+function restaurerSauvegarde(){
+  const input = document.getElementById('fichierSauvegarde');
+  const fichier = input.files[0];
+  if(!fichier){ showToast('Choisissez d\'abord un fichier de sauvegarde'); return; }
+  const lecteur = new FileReader();
+  lecteur.onload = (e) => {
+    try{
+      const importee = JSON.parse(e.target.result);
+      if(!importee || !Array.isArray(importee.members)){
+        showToast('Fichier invalide : ce n\'est pas une sauvegarde reconnue');
+        return;
+      }
+      if(!confirm('Restaurer cette sauvegarde va REMPLACER toutes les données actuelles sur cet appareil. Continuer ?')) return;
+      data = {
+        members: importee.members || [],
+        cotisations: importee.cotisations || [],
+        aides: importee.aides || [],
+        depenses: importee.depenses || [],
+        officers: importee.officers || {president:'',tresorier:'',secretaire:''},
+        journal: importee.journal || [],
+        appName: importee.appName || 'Caisse de Solidarité',
+        montantsAides: importee.montantsAides || {mariage:30000, deces:50000, maladie:50000}
+      };
+      log('Restauration d\'une sauvegarde');
+      saveData();
+      hydrateForm();
+      renderAll();
+      input.value = '';
+      showToast('Sauvegarde restaurée avec succès');
+    }catch(err){
+      console.error(err);
+      showToast('Erreur : fichier illisible ou corrompu');
+    }
+  };
+  lecteur.readAsText(fichier);
 }
 
 function resetAllData(){
