@@ -1052,6 +1052,7 @@ function exportAidesPDF(){
 }
 
 function exportPointFinancierGlobalPDF(){
+ try{
   const t = totals();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -1092,6 +1093,10 @@ function exportPointFinancierGlobalPDF(){
   doc.save(`point-financier-global-${todayISO()}.pdf`);
   log('Impression du point financier global');
   saveData();
+ }catch(e){
+  console.error(e);
+  showToast('Erreur lors de la génération du PDF : ' + e.message);
+ }
 }
 
 function exportPDF(){
