@@ -481,12 +481,26 @@
         <button class="btn gold" onclick="exportPointFinancierGlobalPDF()">Imprimer le point financier global</button>
       </div>
     </div>
+
+    <div class="panel">
+      <h3>Règlement intérieur</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Le texte est celui saisi dans Administration → Règlement intérieur.</p>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportReglementPDF()">Imprimer le règlement intérieur</button>
+      </div>
+    </div>
   </section>
 
   <!-- ADMIN -->
   <section class="view" id="view-admin">
     <h2 class="section-title">Administration</h2>
     <p class="section-sub">Rôles du bureau et journal des opérations.</p>
+    <div class="panel">
+      <h3>Règlement intérieur</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Saisissez ou collez le règlement intérieur de la caisse. Il sera disponible à l'impression dans l'onglet Impression.</p>
+      <textarea id="reglementTexte" rows="12" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:3px; background:#fff; font-family:'IBM Plex Sans',sans-serif; font-size:13.5px;" placeholder="Article 1 : ...&#10;Article 2 : ..."></textarea>
+      <div class="action-row"><button class="btn gold" onclick="saveReglement()">Enregistrer le règlement</button></div>
+    </div>
     <div class="panel">
       <h3>Logo de l'application</h3>
       <p class="section-sub" style="margin-bottom:12px;">Ce logo apparaît dans l'en-tête, en arrière-plan du tableau de bord, et sur tous les documents PDF.</p>
@@ -596,7 +610,7 @@ let data = { members: [], cotisations: [], aides: [], depenses: [], officers:{pr
     { id:'mariage', label:'Mariage', montant:30000 },
     { id:'deces', label:'Décès', montant:50000 },
     { id:'maladie', label:'Maladie', montant:50000 }
-  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), customLogo: null };
+  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), customLogo: null, reglementInterieur: '' };
 let chartRef = null;
 
 document.getElementById('brandLogoImg').src = LOGO_DATA_URL;
@@ -1258,6 +1272,45 @@ function exportAidesPDF(){
   saveData();
 }
 
+function exportReglementPDF(){
+ try{
+  const texte = (data.reglementInterieur || '').trim();
+  if(!texte){ showToast('Aucun règlement intérieur enregistré — allez dans Administration pour le saisir'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = `Règlement intérieur — ${data.appName || 'Caisse de Solidarité'}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+  const marge = 20;
+  const largeur = doc.internal.pageSize.getWidth() - marge*2;
+  const hauteurPage = doc.internal.pageSize.getHeight() - 20;
+  const lignes = doc.splitTextToSize(texte, largeur);
+  const hauteurLigne = 5.5;
+  let y = 40;
+  lignes.forEach(ligne => {
+    if(y > hauteurPage){
+      addPdfFooter(doc);
+      doc.addPage();
+      addPdfWatermark(doc);
+      addPdfHeader(doc, title);
+      y = 40;
+    }
+    doc.text(ligne, marge, y);
+    y += hauteurLigne;
+  });
+  addPdfFooter(doc);
+
+  doc.save(`reglement-interieur-${todayISO()}.pdf`);
+  log('Impression du règlement intérieur');
+  saveData();
+ }catch(e){
+  console.error(e);
+  showToast('Erreur lors de la génération du PDF : ' + e.message);
+ }
+}
+
 function exportPointFinancierGlobalPDF(){
  try{
   const t = totals();
@@ -1431,12 +1484,20 @@ function hydrateForm(){
   document.getElementById('appNameInput').value = data.appName || 'Caisse de Solidarité';
   document.getElementById('montantMensuelDefaut').value = data.montantMensuelDefaut;
   document.getElementById('moisDemarrage').value = data.moisDemarrage;
+  document.getElementById('reglementTexte').value = data.reglementInterieur || '';
   if(!document.getElementById('pointageMois').value) document.getElementById('pointageMois').value = thisMonth();
   applyAppName();
   applyLogo();
   renderMotifOptions();
   renderMotifsAdmin();
   appliquerMontantDefaut();
+}
+
+function saveReglement(){
+  data.reglementInterieur = document.getElementById('reglementTexte').value;
+  log('Mise à jour du règlement intérieur');
+  saveData();
+  showToast('Règlement intérieur enregistré');
 }
 
 function saveParametresCotisation(){
