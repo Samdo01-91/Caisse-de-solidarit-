@@ -318,6 +318,10 @@
       <div class="form-row">
         <div><label>Mois</label><input id="pointageMois" type="month" onchange="renderPointageMois()"></div>
       </div>
+      <div class="action-row" style="justify-content:flex-start; margin-bottom:10px;">
+        <button class="btn small outline" onclick="cocherTousPointage(true)">Tout cocher (tous ont payé)</button>
+        <button class="btn small outline" onclick="cocherTousPointage(false)">Tout décocher</button>
+      </div>
       <div id="pointageListe"></div>
       <div id="pointageTotal" style="margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-2);"></div>
     </div>
@@ -1465,6 +1469,34 @@ function togglePointage(membreId, mois){
     data.cotisations.push({ id: crypto.randomUUID(), membreId, montant, date: todayISO(), periode: mois, type:'mensuelle' });
     log(`Cotisation de ${fmt(montant)} pointée pour "${m?m.nom:'?'}" (${mois})`);
   }
+  saveData(); renderAll();
+}
+
+function cocherTousPointage(payes){
+  const mois = document.getElementById('pointageMois').value || thisMonth();
+  const actifs = data.members.filter(m=>m.statut==='actif');
+  if(actifs.length===0){ showToast('Aucun membre actif'); return; }
+
+  if(payes){
+    if(!confirm(`Marquer TOUS les membres actifs comme ayant payé pour ${mois} ?`)) return;
+    let ajoutes = 0;
+    actifs.forEach(m=>{
+      if(!aPayeMois(m.id, mois)){
+        data.cotisations.push({ id: crypto.randomUUID(), membreId: m.id, montant: montantPourMembre(m), date: todayISO(), periode: mois, type:'mensuelle' });
+        ajoutes++;
+      }
+    });
+    log(`Pointage global : ${ajoutes} membre(s) marqué(s) payé(s) pour ${mois}`);
+    showToast(`${ajoutes} membre(s) marqué(s) comme payé(s)`);
+  }else{
+    if(!confirm(`Décocher TOUS les membres pour ${mois} ? Leurs cotisations mensuelles de ce mois seront supprimées.`)) return;
+    const avant = data.cotisations.length;
+    data.cotisations = data.cotisations.filter(c => !(c.periode===mois && c.type==='mensuelle' && actifs.some(m=>m.id===c.membreId)));
+    const retires = avant - data.cotisations.length;
+    log(`Pointage global : ${retires} cotisation(s) décochée(s) pour ${mois}`);
+    showToast(`${retires} membre(s) décoché(s)`);
+  }
+
   saveData(); renderAll();
 }
 
