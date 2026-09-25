@@ -328,18 +328,23 @@
 
     <div class="panel">
       <h3>Paiement anticipé (plusieurs mois d'avance)</h3>
-      <p class="section-sub" style="margin-bottom:12px;">Pour un membre qui règle plusieurs mois en une fois : indiquez le mois de départ, puis soit un nombre de mois précis, soit cochez « jusqu'à la fin de la période » pour couvrir tous les mois restants.</p>
+      <p class="section-sub" style="margin-bottom:12px;">Pour un membre qui règle plusieurs mois en une fois : indiquez le mois de départ, puis soit un nombre de mois précis, soit cochez « jusqu'à la fin de la période » pour couvrir tous les mois restants. Le montant total se calcule automatiquement, mais reste modifiable.</p>
       <div class="form-row">
-        <div><label>Membre</label><select id="peMembre"></select></div>
-        <div><label>Mois de départ</label><input id="peMoisDepart" type="month"></div>
-        <div><label>Nombre de mois à payer</label><input id="peNombreMois" type="number" min="1" placeholder="Ex : 6"></div>
+        <div><label>Membre</label><select id="peMembre" onchange="calculerTotalAnticipe()"></select></div>
+        <div><label>Mois de départ</label><input id="peMoisDepart" type="month" onchange="calculerTotalAnticipe()"></div>
+        <div><label>Nombre de mois à payer</label><input id="peNombreMois" type="number" min="1" placeholder="Ex : 6" oninput="calculerTotalAnticipe()"></div>
       </div>
       <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;">
-        <input type="checkbox" id="peJusquaFin" style="width:18px; height:18px;" onchange="document.getElementById('peNombreMois').disabled=this.checked; if(this.checked) document.getElementById('peNombreMois').value='';">
+        <input type="checkbox" id="peJusquaFin" style="width:18px; height:18px;" onchange="document.getElementById('peNombreMois').disabled=this.checked; if(this.checked) document.getElementById('peNombreMois').value=''; calculerTotalAnticipe();">
         <span>Jusqu'à la fin de la période (ignore le nombre de mois ci-dessus)</span>
       </label>
+      <div class="form-row">
+        <div><label>Date du paiement</label><input id="peDatePaiement" type="date"></div>
+        <div><label>Montant total payé (FCFA)</label><input id="peMontantTotal" type="number" oninput="this.dataset.auto='0'"></div>
+      </div>
+      <p class="section-sub" id="peRecapitulatif" style="margin:-4px 0 12px 0;"></p>
       <div class="action-row" style="justify-content:flex-start;">
-        <button class="btn gold" onclick="payerPlusieursMois()">Cocher ces mois comme payés</button>
+        <button class="btn gold" onclick="payerPlusieursMois()">Enregistrer ce paiement anticipé</button>
       </div>
     </div>
 
@@ -1506,6 +1511,8 @@ function hydrateForm(){
   document.getElementById('reglementTexte').value = data.reglementInterieur || '';
   if(!document.getElementById('pointageMois').value) document.getElementById('pointageMois').value = thisMonth();
   if(!document.getElementById('peMoisDepart').value) document.getElementById('peMoisDepart').value = thisMonth();
+  if(!document.getElementById('peDatePaiement').value) document.getElementById('peDatePaiement').value = todayISO();
+  calculerTotalAnticipe();
   applyAppName();
   applyLogo();
   renderMotifOptions();
@@ -1636,41 +1643,78 @@ function genererPlageMoisNombre(debut, nombre){
   return mois;
 }
 
-function payerPlusieursMois(){
-  const membreId = document.getElementById('peMembre').value;
+function obtenirMoisAnticipe(){
   const moisDepart = document.getElementById('peMoisDepart').value || thisMonth();
   const jusquaFin = document.getElementById('peJusquaFin').checked;
   const nombreRaw = document.getElementById('peNombreMois').value;
+  if(jusquaFin){
+    const fin = data.moisFin || thisMonth();
+    if(fin < moisDepart) return null;
+    return genererPlageMois(moisDepart, fin);
+  }
+  const nombre = parseInt(nombreRaw, 10);
+  if(!nombre || nombre < 1) return null;
+  return genererPlageMoisNombre(moisDepart, nombre);
+}
 
+function calculerTotalAnticipe(){
+  const membreId = document.getElementById('peMembre').value;
+  const m = data.members.find(x=>x.id===membreId);
+  const recap = document.getElementById('peRecapitulatif');
+  const champTotal = document.getElementById('peMontantTotal');
+  const moisListe = obtenirMoisAnticipe();
+
+  if(!m || !moisListe){
+    recap.textContent = '';
+    return;
+  }
+
+  const totalAuto = montantPourMembre(m) * moisListe.length;
+  if(champTotal.dataset.auto !== '0'){
+    champTotal.value = totalAuto;
+    champTotal.dataset.auto = '1';
+  }
+
+  const dejaPayes = moisListe.filter(mo=>aPayeMois(membreId, mo)).length;
+  const nouveaux = moisListe.length - dejaPayes;
+  let texte = `${moisListe.length} mois sélectionné(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]})`;
+  if(dejaPayes) texte += `, dont ${dejaPayes} déjà payé(s)`;
+  texte += ` — ${nouveaux} nouveau(x) mois seront enregistrés au total indiqué ci-dessus.`;
+  recap.textContent = texte;
+}
+
+function payerPlusieursMois(){
+  const membreId = document.getElementById('peMembre').value;
   const m = data.members.find(x=>x.id===membreId);
   if(!m){ showToast('Choisissez un membre'); return; }
 
-  let moisListe;
-  if(jusquaFin){
-    const fin = data.moisFin || thisMonth();
-    if(fin < moisDepart){ showToast('Le mois de départ dépasse déjà la fin de la période'); return; }
-    moisListe = genererPlageMois(moisDepart, fin);
-  }else{
-    const nombre = parseInt(nombreRaw, 10);
-    if(!nombre || nombre < 1){ showToast('Indiquez un nombre de mois, ou cochez « jusqu\'à la fin »'); return; }
-    moisListe = genererPlageMoisNombre(moisDepart, nombre);
-  }
+  const moisListe = obtenirMoisAnticipe();
+  if(!moisListe){ showToast('Indiquez un nombre de mois valide, ou cochez « jusqu\'à la fin »'); return; }
 
-  const montant = montantPourMembre(m);
+  const totalSaisi = parseFloat(document.getElementById('peMontantTotal').value);
+  const total = (totalSaisi && totalSaisi > 0) ? totalSaisi : montantPourMembre(m) * moisListe.length;
+  const montantParMois = Math.round(total / moisListe.length);
+  const datePaiement = document.getElementById('peDatePaiement').value || todayISO();
+
   let ajoutes = 0;
   moisListe.forEach(mo=>{
     if(!aPayeMois(membreId, mo)){
-      data.cotisations.push({ id: crypto.randomUUID(), membreId, montant, date: todayISO(), periode: mo, type:'mensuelle' });
+      data.cotisations.push({ id: crypto.randomUUID(), membreId, montant: montantParMois, date: datePaiement, periode: mo, type:'mensuelle' });
       ajoutes++;
     }
   });
 
   if(ajoutes===0){ showToast('Tous ces mois étaient déjà marqués payés pour ce membre'); return; }
 
-  log(`Paiement anticipé de "${m.nom}" : ${ajoutes} mois pointé(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]})`);
+  const totalReel = montantParMois * ajoutes;
+  log(`Paiement anticipé de "${m.nom}" : ${ajoutes} mois pointé(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]}), total ${fmt(totalReel)}`);
   saveData(); renderAll();
+
   document.getElementById('peNombreMois').value = '';
-  showToast(`${ajoutes} mois marqué(s) comme payés pour ${m.nom}`);
+  document.getElementById('peMontantTotal').value = '';
+  document.getElementById('peMontantTotal').dataset.auto = '1';
+  document.getElementById('peRecapitulatif').textContent = '';
+  showToast(`${ajoutes} mois marqué(s) comme payés pour ${m.nom} — total ${fmt(totalReel)}`);
 }
 
 function renderSuiviMensuel(){
@@ -1967,6 +2011,7 @@ function renderAll(){
   renderChart();
   renderPointageMois();
   renderSuiviMensuel();
+  calculerTotalAnticipe();
 }
 
 loadData();
