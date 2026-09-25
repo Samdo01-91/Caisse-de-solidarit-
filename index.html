@@ -521,10 +521,11 @@
     </div>
     <div class="panel">
       <h3>Paramètres des cotisations</h3>
-      <p class="section-sub" style="margin-bottom:12px;">Le montant par défaut s'applique à tous les membres, sauf ceux ayant un montant personnalisé dans leur fiche. Le mois de démarrage détermine le début du suivi mensuel.</p>
+      <p class="section-sub" style="margin-bottom:12px;">Le montant par défaut s'applique à tous les membres, sauf ceux ayant un montant personnalisé dans leur fiche. Le mois de démarrage et le mois de fin délimitent la période du suivi mensuel — laissez le mois de fin vide pour continuer jusqu'au mois en cours.</p>
       <div class="form-row">
         <div><label>Cotisation mensuelle par défaut (FCFA)</label><input id="montantMensuelDefaut" type="number"></div>
         <div><label>Mois de démarrage</label><input id="moisDemarrage" type="month"></div>
+        <div><label>Mois de fin (optionnel)</label><input id="moisFin" type="month"></div>
       </div>
       <div class="action-row"><button class="btn gold" onclick="saveParametresCotisation()">Enregistrer les paramètres</button></div>
     </div>
@@ -610,7 +611,7 @@ let data = { members: [], cotisations: [], aides: [], depenses: [], officers:{pr
     { id:'mariage', label:'Mariage', montant:30000 },
     { id:'deces', label:'Décès', montant:50000 },
     { id:'maladie', label:'Maladie', montant:50000 }
-  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), customLogo: null, reglementInterieur: '' };
+  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), moisFin: '', customLogo: null, reglementInterieur: '' };
 let chartRef = null;
 
 document.getElementById('brandLogoImg').src = LOGO_DATA_URL;
@@ -1484,6 +1485,7 @@ function hydrateForm(){
   document.getElementById('appNameInput').value = data.appName || 'Caisse de Solidarité';
   document.getElementById('montantMensuelDefaut').value = data.montantMensuelDefaut;
   document.getElementById('moisDemarrage').value = data.moisDemarrage;
+  document.getElementById('moisFin').value = data.moisFin || '';
   document.getElementById('reglementTexte').value = data.reglementInterieur || '';
   if(!document.getElementById('pointageMois').value) document.getElementById('pointageMois').value = thisMonth();
   applyAppName();
@@ -1503,6 +1505,12 @@ function saveReglement(){
 function saveParametresCotisation(){
   data.montantMensuelDefaut = parseFloat(document.getElementById('montantMensuelDefaut').value) || 0;
   data.moisDemarrage = document.getElementById('moisDemarrage').value || thisMonth();
+  const finSaisie = document.getElementById('moisFin').value || '';
+  if(finSaisie && finSaisie < data.moisDemarrage){
+    showToast('Le mois de fin doit être après le mois de démarrage');
+    return;
+  }
+  data.moisFin = finSaisie;
   log('Mise à jour des paramètres de cotisation');
   saveData();
   renderAll();
@@ -1585,7 +1593,7 @@ function renderPointageMois(){
 
 function listeMoisDepuisDemarrage(){
   const debut = data.moisDemarrage || thisMonth();
-  const fin = thisMonth();
+  const fin = data.moisFin || thisMonth();
   const mois = [];
   let [ay, am] = debut.split('-').map(Number);
   const [zy, zm] = fin.split('-').map(Number);
@@ -1831,6 +1839,7 @@ function restaurerSauvegarde(){
         ],
         montantMensuelDefaut: importee.montantMensuelDefaut || 2000,
         moisDemarrage: importee.moisDemarrage || new Date().toISOString().slice(0,7),
+        moisFin: importee.moisFin || '',
         customLogo: importee.customLogo || null
       };
       log('Restauration d\'une sauvegarde');
