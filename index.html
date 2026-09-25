@@ -327,6 +327,23 @@
     </div>
 
     <div class="panel">
+      <h3>Paiement anticipé (plusieurs mois d'avance)</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Pour un membre qui règle plusieurs mois en une fois : indiquez le mois de départ, puis soit un nombre de mois précis, soit cochez « jusqu'à la fin de la période » pour couvrir tous les mois restants.</p>
+      <div class="form-row">
+        <div><label>Membre</label><select id="peMembre"></select></div>
+        <div><label>Mois de départ</label><input id="peMoisDepart" type="month"></div>
+        <div><label>Nombre de mois à payer</label><input id="peNombreMois" type="number" min="1" placeholder="Ex : 6"></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;">
+        <input type="checkbox" id="peJusquaFin" style="width:18px; height:18px;" onchange="document.getElementById('peNombreMois').disabled=this.checked; if(this.checked) document.getElementById('peNombreMois').value='';">
+        <span>Jusqu'à la fin de la période (ignore le nombre de mois ci-dessus)</span>
+      </label>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="payerPlusieursMois()">Cocher ces mois comme payés</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <h3>Suivi mensuel (depuis le mois de démarrage)</h3>
       <p class="section-sub" style="margin-bottom:12px;">Vue d'ensemble mois par mois. Cliquez sur une case pour cocher/décocher un paiement.</p>
       <div class="table-wrap"><table id="tblSuiviMensuel"></table></div>
@@ -1488,6 +1505,7 @@ function hydrateForm(){
   document.getElementById('moisFin').value = data.moisFin || '';
   document.getElementById('reglementTexte').value = data.reglementInterieur || '';
   if(!document.getElementById('pointageMois').value) document.getElementById('pointageMois').value = thisMonth();
+  if(!document.getElementById('peMoisDepart').value) document.getElementById('peMoisDepart').value = thisMonth();
   applyAppName();
   applyLogo();
   renderMotifOptions();
@@ -1594,6 +1612,10 @@ function renderPointageMois(){
 function listeMoisDepuisDemarrage(){
   const debut = data.moisDemarrage || thisMonth();
   const fin = data.moisFin || thisMonth();
+  return genererPlageMois(debut, fin);
+}
+
+function genererPlageMois(debut, fin){
   const mois = [];
   let [ay, am] = debut.split('-').map(Number);
   const [zy, zm] = fin.split('-').map(Number);
@@ -1602,6 +1624,53 @@ function listeMoisDepuisDemarrage(){
     am++; if(am>12){ am=1; ay++; }
   }
   return mois;
+}
+
+function genererPlageMoisNombre(debut, nombre){
+  const mois = [];
+  let [ay, am] = debut.split('-').map(Number);
+  for(let i=0; i<nombre; i++){
+    mois.push(`${ay}-${String(am).padStart(2,'0')}`);
+    am++; if(am>12){ am=1; ay++; }
+  }
+  return mois;
+}
+
+function payerPlusieursMois(){
+  const membreId = document.getElementById('peMembre').value;
+  const moisDepart = document.getElementById('peMoisDepart').value || thisMonth();
+  const jusquaFin = document.getElementById('peJusquaFin').checked;
+  const nombreRaw = document.getElementById('peNombreMois').value;
+
+  const m = data.members.find(x=>x.id===membreId);
+  if(!m){ showToast('Choisissez un membre'); return; }
+
+  let moisListe;
+  if(jusquaFin){
+    const fin = data.moisFin || thisMonth();
+    if(fin < moisDepart){ showToast('Le mois de départ dépasse déjà la fin de la période'); return; }
+    moisListe = genererPlageMois(moisDepart, fin);
+  }else{
+    const nombre = parseInt(nombreRaw, 10);
+    if(!nombre || nombre < 1){ showToast('Indiquez un nombre de mois, ou cochez « jusqu\'à la fin »'); return; }
+    moisListe = genererPlageMoisNombre(moisDepart, nombre);
+  }
+
+  const montant = montantPourMembre(m);
+  let ajoutes = 0;
+  moisListe.forEach(mo=>{
+    if(!aPayeMois(membreId, mo)){
+      data.cotisations.push({ id: crypto.randomUUID(), membreId, montant, date: todayISO(), periode: mo, type:'mensuelle' });
+      ajoutes++;
+    }
+  });
+
+  if(ajoutes===0){ showToast('Tous ces mois étaient déjà marqués payés pour ce membre'); return; }
+
+  log(`Paiement anticipé de "${m.nom}" : ${ajoutes} mois pointé(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]})`);
+  saveData(); renderAll();
+  document.getElementById('peNombreMois').value = '';
+  showToast(`${ajoutes} mois marqué(s) comme payés pour ${m.nom}`);
 }
 
 function renderSuiviMensuel(){
@@ -1885,6 +1954,7 @@ function renderJournal(){
 function renderAll(){
   memberOptions(document.getElementById('cMembre'));
   memberOptions(document.getElementById('aMembre'));
+  memberOptions(document.getElementById('peMembre'));
   const rM = document.getElementById('rMembre');
   rM.innerHTML = '<option value="">Tous les membres</option>' + data.members.map(m=>`<option value="${m.id}">${m.nom}</option>`).join('');
   renderMembersTable();
