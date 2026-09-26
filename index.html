@@ -801,6 +801,39 @@ function isAJour(memberId){
   return data.cotisations.some(c => c.membreId===memberId && c.periode===thisMonth());
 }
 
+let membreEnEdition = null;
+
+function membresTries(){
+  return [...data.members].sort((a,b)=> a.nom.localeCompare(b.nom, 'fr', { sensitivity:'base' }));
+}
+
+function editerMembre(id){
+  membreEnEdition = id;
+  renderMembersTable();
+}
+
+function annulerEditionMembre(){
+  membreEnEdition = null;
+  renderMembersTable();
+}
+
+function enregistrerEditionMembre(id){
+  const m = data.members.find(x=>x.id===id);
+  if(!m) return;
+  const nom = document.getElementById('editNom_'+id).value.trim();
+  if(!nom){ showToast('Le nom ne peut pas être vide'); return; }
+  m.nom = nom;
+  m.tel = document.getElementById('editTel_'+id).value.trim();
+  m.etab = document.getElementById('editEtab_'+id).value.trim();
+  m.dateAdh = document.getElementById('editDate_'+id).value || m.dateAdh;
+  const montantRaw = document.getElementById('editMontant_'+id).value;
+  m.montantMensuel = montantRaw ? parseFloat(montantRaw) : null;
+  log(`Modification de la fiche du membre "${nom}"`);
+  membreEnEdition = null;
+  saveData(); renderAll();
+  showToast('Fiche membre mise à jour');
+}
+
 function renderMembersTable(){
   const t = document.getElementById('tblMembres');
   if(data.members.length===0){
@@ -808,7 +841,24 @@ function renderMembersTable(){
     return;
   }
   let html = `<thead><tr><th>Nom</th><th>Établissement</th><th>Téléphone</th><th>Adhésion</th><th>Statut</th><th>Cotisation</th><th></th></tr></thead><tbody>`;
-  data.members.forEach(m=>{
+  membresTries().forEach(m=>{
+    if(m.id === membreEnEdition){
+      html += `<tr>
+        <td><input id="editNom_${m.id}" value="${(m.nom||'').replace(/"/g,'&quot;')}" style="min-width:110px;"></td>
+        <td><input id="editEtab_${m.id}" value="${(m.etab||'').replace(/"/g,'&quot;')}" style="min-width:100px;"></td>
+        <td><input id="editTel_${m.id}" value="${(m.tel||'').replace(/"/g,'&quot;')}" style="min-width:100px;"></td>
+        <td><input id="editDate_${m.id}" type="date" value="${m.dateAdh||''}"></td>
+        <td colspan="2">
+          <label style="font-size:11px; color:#7a7862; display:block; margin-bottom:2px;">Cotisation mensuelle perso.</label>
+          <input id="editMontant_${m.id}" type="number" value="${m.montantMensuel ?? ''}" placeholder="Défaut">
+        </td>
+        <td style="white-space:nowrap;">
+          <button class="btn small gold" onclick="enregistrerEditionMembre('${m.id}')">Enregistrer</button>
+          <button class="btn small outline" onclick="annulerEditionMembre()">Annuler</button>
+        </td>
+      </tr>`;
+      return;
+    }
     const aJour = isAJour(m.id);
     html += `<tr>
       <td class="name-cell">${m.nom}</td>
@@ -817,8 +867,11 @@ function renderMembersTable(){
       <td>${m.dateAdh||'—'}</td>
       <td>${m.statut==='suspendu' ? '<span class="stamp suspendu">Suspendu</span>' : '<span class="stamp paye">Actif</span>'}</td>
       <td>${aJour ? '<span class="stamp paye">À jour</span>' : '<span class="stamp retard">En retard</span>'}</td>
-      <td><button class="btn small outline" onclick="toggleSuspend('${m.id}')">${m.statut==='suspendu'?'Réactiver':'Suspendre'}</button>
-      <button class="close-x" onclick="removeMember('${m.id}')" title="Retirer">✕</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn small outline" onclick="editerMembre('${m.id}')">Modifier</button>
+        <button class="btn small outline" onclick="toggleSuspend('${m.id}')">${m.statut==='suspendu'?'Réactiver':'Suspendre'}</button>
+        <button class="close-x" onclick="removeMember('${m.id}')" title="Retirer">✕</button>
+      </td>
     </tr>`;
   });
   html += '</tbody>';
@@ -826,7 +879,7 @@ function renderMembersTable(){
 }
 
 function memberOptions(selectEl){
-  selectEl.innerHTML = data.members.map(m=>`<option value="${m.id}">${m.nom}</option>`).join('');
+  selectEl.innerHTML = membresTries().map(m=>`<option value="${m.id}">${m.nom}</option>`).join('');
 }
 
 /* ---------- Cotisations ---------- */
@@ -991,10 +1044,13 @@ function totals(){
   const totAides = data.aides.reduce((s,a)=>s+a.montant,0);
   const totDep = data.depenses.reduce((s,d)=>s+d.montant,0);
   const solde = totCotis - totAides - totDep;
-  const actifs = data.members.filter(m=>m.statut==='actif');
+  const actifs = membresTries().filter(m=>m.statut==='actif');
   const aJour = actifs.filter(m=>isAJour(m.id)).length;
   const enRetard = actifs.length - aJour;
-  return { totCotis, totAides, totDep, solde, actifs: actifs.length, aJour, enRetard };
+  const totAnticipe = data.cotisations
+    .filter(c => c.type==='mensuelle' && c.periode > c.date.slice(0,7))
+    .reduce((s,c)=>s+c.montant,0);
+  return { totCotis, totAides, totDep, solde, actifs: actifs.length, aJour, enRetard, totAnticipe };
 }
 
 /* ---------- Dashboard ---------- */
@@ -1006,6 +1062,7 @@ function renderDashboard(){
     <div class="card negative"><div class="label">Soutiens versés</div><div class="value small">${fmt(t.totAides)}</div></div>
     <div class="card"><div class="label">Membres à jour</div><div class="value small">${t.aJour} / ${t.actifs}</div></div>
     <div class="card negative"><div class="label">Membres en retard</div><div class="value small">${t.enRetard}</div></div>
+    <div class="card"><div class="label">Payé par anticipation</div><div class="value small">${fmt(t.totAnticipe)}</div></div>
   `;
   const retardMembers = data.members.filter(m=>m.statut==='actif' && !isAJour(m.id));
   const el = document.getElementById('dashRetard');
@@ -1046,6 +1103,7 @@ function renderFinances(){
     <div class="card"><div class="label">Total entrées (cotisations)</div><div class="value small">${fmt(t.totCotis)}</div></div>
     <div class="card negative"><div class="label">Total sorties (soutiens)</div><div class="value small">${fmt(t.totAides)}</div></div>
     <div class="card negative"><div class="label">Total dépenses</div><div class="value small">${fmt(t.totDep)}</div></div>
+    <div class="card"><div class="label">Dont payé par anticipation</div><div class="value small">${fmt(t.totAnticipe)}</div></div>
   `;
   const pfMois = document.getElementById('pfMois');
   if(pfMois && !pfMois.value) pfMois.value = thisMonth();
@@ -1141,7 +1199,7 @@ function exportMembersPDF(){
   const title = `Liste des membres — ${data.appName || 'Caisse de Solidarité'}`;
   addPdfWatermark(doc);
   addPdfHeader(doc, title);
-  const rows = data.members.map(m=>[
+  const rows = membresTries().map(m=>[
     m.nom, m.etab||'—', m.tel||'—', m.dateAdh||'—',
     m.statut==='suspendu' ? 'Suspendu' : 'Actif',
     isAJour(m.id) ? 'À jour' : 'En retard'
@@ -1171,7 +1229,7 @@ function exportPointFinancierPDF(){
   const soldeMois = totCotisMois - totAidesMois - totDepMois;
 
   const t = totals();
-  const actifs = data.members.filter(m=>m.statut==='actif');
+  const actifs = membresTries().filter(m=>m.statut==='actif');
   const aJourMois = actifs.filter(m=>data.cotisations.some(c=>c.membreId===m.id && c.periode===mois)).length;
 
   const { jsPDF } = window.jspdf;
@@ -1568,7 +1626,7 @@ function togglePointage(membreId, mois){
 
 function cocherTousPointage(payes){
   const mois = document.getElementById('pointageMois').value || thisMonth();
-  const actifs = data.members.filter(m=>m.statut==='actif');
+  const actifs = membresTries().filter(m=>m.statut==='actif');
   if(actifs.length===0){ showToast('Aucun membre actif'); return; }
 
   if(payes){
@@ -1596,7 +1654,7 @@ function cocherTousPointage(payes){
 
 function renderPointageMois(){
   const mois = document.getElementById('pointageMois').value || thisMonth();
-  const actifs = data.members.filter(m=>m.statut==='actif');
+  const actifs = membresTries().filter(m=>m.statut==='actif');
   const cont = document.getElementById('pointageListe');
   if(actifs.length===0){
     cont.innerHTML = `<div class="empty-state"><div class="icon">✎</div>Aucun membre actif.</div>`;
@@ -1719,7 +1777,7 @@ function payerPlusieursMois(){
 
 function renderSuiviMensuel(){
   const t = document.getElementById('tblSuiviMensuel');
-  const actifs = data.members.filter(m=>m.statut==='actif');
+  const actifs = membresTries().filter(m=>m.statut==='actif');
   const moisListe = listeMoisDepuisDemarrage();
   if(actifs.length===0 || moisListe.length===0){
     t.innerHTML = `<tbody><tr><td class="empty-state"><div class="icon">✎</div>Aucune donnée à afficher.</td></tr></tbody>`;
@@ -2000,7 +2058,7 @@ function renderAll(){
   memberOptions(document.getElementById('aMembre'));
   memberOptions(document.getElementById('peMembre'));
   const rM = document.getElementById('rMembre');
-  rM.innerHTML = '<option value="">Tous les membres</option>' + data.members.map(m=>`<option value="${m.id}">${m.nom}</option>`).join('');
+  rM.innerHTML = '<option value="">Tous les membres</option>' + membresTries().map(m=>`<option value="${m.id}">${m.nom}</option>`).join('');
   renderMembersTable();
   renderCotisationsTable();
   renderAidesTable();
