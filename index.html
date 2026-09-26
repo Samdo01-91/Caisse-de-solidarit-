@@ -464,6 +464,18 @@
     </div>
 
     <div class="panel">
+      <h3>Membres à jour / en retard</h3>
+      <p class="section-sub" style="margin-bottom:12px;">Deux listes séparées selon la cotisation mensuelle du mois choisi.</p>
+      <div class="form-row">
+        <div><label>Mois de référence</label><input id="statutMois" type="month"></div>
+      </div>
+      <div class="action-row" style="justify-content:flex-start;">
+        <button class="btn gold" onclick="exportMembersStatutPDF('ajour')">Imprimer les membres à jour</button>
+        <button class="btn" style="background:var(--brick);" onclick="exportMembersStatutPDF('retard')">Imprimer les membres en retard</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <h3>Point des cotisations</h3>
       <p class="section-sub" style="margin-bottom:12px;">Laissez vide pour inclure toutes les cotisations depuis le début.</p>
       <div class="form-row">
@@ -1192,6 +1204,40 @@ function addPdfFooter(doc){
   doc.setTextColor(0);
 }
 
+function exportMembersStatutPDF(statut){
+  const mois = document.getElementById('statutMois').value || thisMonth();
+  const actifs = membresTries().filter(m=>m.statut==='actif');
+  const liste = actifs.filter(m => statut==='ajour' ? aPayeMois(m.id, mois) : !aPayeMois(m.id, mois));
+
+  if(liste.length===0){
+    showToast(statut==='ajour' ? 'Aucun membre à jour pour ce mois' : 'Aucun membre en retard pour ce mois');
+    return;
+  }
+
+  const label = new Date(mois+'-01').toLocaleDateString('fr-FR',{month:'long', year:'numeric'});
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const title = statut==='ajour'
+    ? `Membres à jour — ${label}`
+    : `Membres en retard — ${label}`;
+  addPdfWatermark(doc);
+  addPdfHeader(doc, title);
+
+  const rows = liste.map(m => [m.nom, m.etab||'—', m.tel||'—', fmt(montantPourMembre(m))]);
+  doc.autoTable({
+    head:[['Nom','Établissement','Téléphone','Cotisation mensuelle']],
+    body: rows, startY: 38, styles:{ fontSize:9 },
+    headStyles:{ fillColor: statut==='ajour' ? [22,50,31] : [161,61,43] },
+    foot:[[`${liste.length} membre(s)`,'','','']],
+    footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+  });
+
+  doc.save(`membres-${statut==='ajour'?'a-jour':'en-retard'}-${mois}.pdf`);
+  log(`Impression des membres ${statut==='ajour'?'à jour':'en retard'} (${label})`);
+  saveData();
+}
+
 function exportMembersPDF(){
   if(data.members.length===0){ showToast('Aucun membre à imprimer'); return; }
   const { jsPDF } = window.jspdf;
@@ -1570,6 +1616,7 @@ function hydrateForm(){
   if(!document.getElementById('pointageMois').value) document.getElementById('pointageMois').value = thisMonth();
   if(!document.getElementById('peMoisDepart').value) document.getElementById('peMoisDepart').value = thisMonth();
   if(!document.getElementById('peDatePaiement').value) document.getElementById('peDatePaiement').value = todayISO();
+  if(!document.getElementById('statutMois').value) document.getElementById('statutMois').value = thisMonth();
   calculerTotalAnticipe();
   applyAppName();
   applyLogo();
