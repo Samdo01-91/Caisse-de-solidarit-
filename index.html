@@ -645,7 +645,7 @@ let data = { members: [], cotisations: [], aides: [], depenses: [], officers:{pr
     { id:'mariage', label:'Mariage', montant:30000 },
     { id:'deces', label:'Décès', montant:50000 },
     { id:'maladie', label:'Maladie', montant:50000 }
-  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), moisFin: '', customLogo: null, reglementInterieur: '' };
+  ], montantMensuelDefaut:2000, moisDemarrage: new Date().toISOString().slice(0,7), moisFin: '', customLogo: null, reglementInterieur: '', compteurDocuments: 0 };
 let chartRef = null;
 
 document.getElementById('brandLogoImg').src = LOGO_DATA_URL;
@@ -1188,12 +1188,24 @@ function addPdfWatermark(doc){
   }
 }
 
-function addPdfHeader(doc, title){
+function prochainNumeroDocument(){
+  data.compteurDocuments = (data.compteurDocuments || 0) + 1;
+  saveData();
+  return 'N° ' + String(data.compteurDocuments).padStart(4, '0');
+}
+
+function addPdfHeader(doc, title, numero){
   doc.addImage(ACTIVE_LOGO_URL, ACTIVE_LOGO_FORMAT, 14, 10, 16, 23.8);
   doc.setFont('helvetica','bold'); doc.setFontSize(15);
   doc.text(title || `Relevé — ${data.appName || 'Caisse de Solidarité'}`, 36, 18);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
   doc.text(`Édité le ${new Date().toLocaleDateString('fr-FR')}`, 36, 25);
+  if(numero){
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(90);
+    doc.text(numero, pageW - 14, 15, { align:'right' });
+    doc.setTextColor(0);
+  }
 }
 
 function addPdfFooter(doc){
@@ -1220,8 +1232,9 @@ function exportMembersStatutPDF(statut){
   const title = statut==='ajour'
     ? `Membres à jour — ${label}`
     : `Membres en retard — ${label}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
 
   const rows = liste.map(m => [m.nom, m.etab||'—', m.tel||'—', fmt(montantPourMembre(m))]);
   doc.autoTable({
@@ -1230,7 +1243,7 @@ function exportMembersStatutPDF(statut){
     headStyles:{ fillColor: statut==='ajour' ? [22,50,31] : [161,61,43] },
     foot:[[`${liste.length} membre(s)`,'','','']],
     footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
 
   doc.save(`membres-${statut==='ajour'?'a-jour':'en-retard'}-${mois}.pdf`);
@@ -1243,8 +1256,9 @@ function exportMembersPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Liste des membres — ${data.appName || 'Caisse de Solidarité'}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
   const rows = membresTries().map(m=>[
     m.nom, m.etab||'—', m.tel||'—', m.dateAdh||'—',
     m.statut==='suspendu' ? 'Suspendu' : 'Actif',
@@ -1253,7 +1267,7 @@ function exportMembersPDF(){
   doc.autoTable({
     head:[['Nom','Établissement','Téléphone','Adhésion','Statut','Cotisation']],
     body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`liste-membres-${todayISO()}.pdf`);
   log('Impression de la liste des membres');
@@ -1281,8 +1295,9 @@ function exportPointFinancierPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Point financier — ${label}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
 
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Résumé du mois', 14, 45);
@@ -1332,7 +1347,7 @@ function exportPointFinancierPDF(){
     head:[['Description','Montant']],
     body: depensesMois.length ? depensesMois.map(d=>[d.description, fmt(d.montant)]) : [['Aucune dépense ce mois','']],
     styles:{fontSize:9}, headStyles:{fillColor:[184,137,43]},
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   addPdfFooter(doc);
 
@@ -1351,8 +1366,9 @@ function exportCotisationsPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Point des cotisations — ${label}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
   const total = rows.reduce((s,c)=>s+c.montant,0);
   doc.autoTable({
     startY: 38,
@@ -1363,7 +1379,7 @@ function exportCotisationsPDF(){
     }),
     foot:[['','','','Total', fmt(total)]],
     styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`point-cotisations-${mois||'toutes-periodes'}.pdf`);
   log(`Impression du point des cotisations (${label})`);
@@ -1380,8 +1396,9 @@ function exportAidesPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Point des soutiens — ${label}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
   const total = rows.reduce((s,a)=>s+a.montant,0);
   doc.autoTable({
     startY: 38,
@@ -1392,7 +1409,7 @@ function exportAidesPDF(){
     }),
     foot:[['','','Total', fmt(total)]],
     styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`point-soutiens-${mois||'toutes-periodes'}.pdf`);
   log(`Impression du point des soutiens (${label})`);
@@ -1406,8 +1423,9 @@ function exportReglementPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Règlement intérieur — ${data.appName || 'Caisse de Solidarité'}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
 
   doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
   const marge = 20;
@@ -1421,7 +1439,7 @@ function exportReglementPDF(){
       addPdfFooter(doc);
       doc.addPage();
       addPdfWatermark(doc);
-      addPdfHeader(doc, title);
+      addPdfHeader(doc, title, numero);
       y = 40;
     }
     doc.text(ligne, marge, y);
@@ -1444,8 +1462,9 @@ function exportPointFinancierGlobalPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Point financier global — ${data.appName || 'Caisse de Solidarité'}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
 
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('Bilan global depuis la création', 14, 45);
@@ -1473,7 +1492,7 @@ function exportPointFinancierGlobalPDF(){
     head:[['Mois','Total cotisations']],
     body: moisTries.length ? moisTries.map(mo => [mo, fmt(parMois[mo])]) : [['Aucune cotisation enregistrée','']],
     styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]},
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   addPdfFooter(doc);
 
@@ -1492,8 +1511,9 @@ function exportPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const title = `Relevé — ${data.appName || 'Caisse de Solidarité'}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
   let solde = 0;
   const rows = ops.map(op=>{
     solde += op.montant;
@@ -1502,7 +1522,7 @@ function exportPDF(){
   doc.autoTable({
     head:[['Date','Membre','Description','Montant','Solde cumulé']],
     body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title); } }
+    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`releve-caisse-${todayISO()}.pdf`);
   log('Export PDF du relevé');
@@ -1512,11 +1532,13 @@ function exportPDF(){
 function exportExcel(){
   const ops = filteredOperations();
   if(ops.length===0){ showToast('Aucune opération à exporter'); return; }
+  const numero = prochainNumeroDocument();
   let solde = 0;
   const rows = ops.map(op=>{
     solde += op.montant;
     return { Date:op.date, Membre:op.membre, Description:op.description, Montant:op.montant, 'Solde cumulé':solde };
   });
+  rows.unshift({ Date: numero, Membre: `Édité le ${new Date().toLocaleDateString('fr-FR')}`, Description:'', Montant:'', 'Solde cumulé':'' });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Relevé');
@@ -1589,8 +1611,9 @@ function downloadMessagePDF(){
   const doc = new jsPDF();
   const sousTitre = motifLabel(currentMessageMotif) || 'Message';
   const title = `Message — ${sousTitre}`;
+  const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
-  addPdfHeader(doc, title);
+  addPdfHeader(doc, title, numero);
 
   doc.setFont('helvetica','normal'); doc.setFontSize(11);
   const marge = 20;
@@ -2058,7 +2081,9 @@ function restaurerSauvegarde(){
         montantMensuelDefaut: importee.montantMensuelDefaut || 2000,
         moisDemarrage: importee.moisDemarrage || new Date().toISOString().slice(0,7),
         moisFin: importee.moisFin || '',
-        customLogo: importee.customLogo || null
+        customLogo: importee.customLogo || null,
+        reglementInterieur: importee.reglementInterieur || '',
+        compteurDocuments: importee.compteurDocuments || 0
       };
       log('Restauration d\'une sauvegarde');
       saveData();
