@@ -852,10 +852,11 @@ function renderMembersTable(){
     t.innerHTML = `<tbody><tr><td class="empty-state"><div class="icon">✎</div>Aucun membre inscrit pour l'instant.</td></tr></tbody>`;
     return;
   }
-  let html = `<thead><tr><th>Nom</th><th>Établissement</th><th>Téléphone</th><th>Adhésion</th><th>Statut</th><th>Cotisation</th><th></th></tr></thead><tbody>`;
-  membresTries().forEach(m=>{
+  let html = `<thead><tr><th>N°</th><th>Nom</th><th>Établissement</th><th>Téléphone</th><th>Adhésion</th><th>Statut</th><th>Cotisation</th><th></th></tr></thead><tbody>`;
+  membresTries().forEach((m, index)=>{
     if(m.id === membreEnEdition){
       html += `<tr>
+        <td class="name-cell">${index+1}</td>
         <td><input id="editNom_${m.id}" value="${(m.nom||'').replace(/"/g,'&quot;')}" style="min-width:110px;"></td>
         <td><input id="editEtab_${m.id}" value="${(m.etab||'').replace(/"/g,'&quot;')}" style="min-width:100px;"></td>
         <td><input id="editTel_${m.id}" value="${(m.tel||'').replace(/"/g,'&quot;')}" style="min-width:100px;"></td>
@@ -873,6 +874,7 @@ function renderMembersTable(){
     }
     const aJour = isAJour(m.id);
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
       <td class="name-cell">${m.nom}</td>
       <td>${m.etab||'—'}</td>
       <td>${m.tel||'—'}</td>
@@ -923,10 +925,11 @@ function renderCotisationsTable(){
     return;
   }
   const rows = [...data.cotisations].sort((a,b)=> b.date.localeCompare(a.date));
-  let html = `<thead><tr><th>Membre</th><th>Montant</th><th>Date</th><th>Période</th><th>Type</th><th></th></tr></thead><tbody>`;
-  rows.forEach(c=>{
+  let html = `<thead><tr><th>N°</th><th>Membre</th><th>Montant</th><th>Date</th><th>Période</th><th>Type</th><th></th></tr></thead><tbody>`;
+  rows.forEach((c, index)=>{
     const m = data.members.find(x=>x.id===c.membreId);
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
       <td class="name-cell">${m?m.nom:'Membre retiré'}</td>
       <td><span class="stamp paye">${fmt(c.montant)}</span></td>
       <td>${c.date}</td>
@@ -993,10 +996,11 @@ function renderAidesTable(){
     return;
   }
   const rows = [...data.aides].sort((a,b)=> b.date.localeCompare(a.date));
-  let html = `<thead><tr><th>Membre</th><th>Motif</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>`;
-  rows.forEach(a=>{
+  let html = `<thead><tr><th>N°</th><th>Membre</th><th>Motif</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>`;
+  rows.forEach((a, index)=>{
     const m = data.members.find(x=>x.id===a.membreId);
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
       <td class="name-cell">${m?m.nom:'Membre retiré'}</td>
       <td>${motifLabel(a.motif)}</td>
       <td><span class="stamp retard">${fmt(a.montant)}</span></td>
@@ -1037,9 +1041,10 @@ function renderDepensesTable(){
     return;
   }
   const rows = [...data.depenses].sort((a,b)=> b.date.localeCompare(a.date));
-  let html = `<thead><tr><th>Description</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>`;
-  rows.forEach(d=>{
+  let html = `<thead><tr><th>N°</th><th>Description</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>`;
+  rows.forEach((d, index)=>{
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
       <td class="name-cell">${d.description}</td>
       <td>${fmt(d.montant)}</td>
       <td>${d.date}</td>
@@ -1161,10 +1166,11 @@ function renderReleve(){
     return;
   }
   let solde = 0;
-  let html = `<thead><tr><th>Date</th><th>Membre</th><th>Description</th><th>Montant</th><th>Solde cumulé</th></tr></thead><tbody>`;
-  ops.forEach(op=>{
+  let html = `<thead><tr><th>N°</th><th>Date</th><th>Membre</th><th>Description</th><th>Montant</th><th>Solde cumulé</th></tr></thead><tbody>`;
+  ops.forEach((op, index)=>{
     solde += op.montant;
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
       <td>${op.date}</td>
       <td class="name-cell">${op.membre}</td>
       <td>${op.description}</td>
@@ -1236,12 +1242,12 @@ function exportMembersStatutPDF(statut){
   addPdfWatermark(doc);
   addPdfHeader(doc, title, numero);
 
-  const rows = liste.map(m => [m.nom, m.etab||'—', m.tel||'—', fmt(montantPourMembre(m))]);
+  const rows = liste.map((m, index) => [index+1, m.nom, m.etab||'—', m.tel||'—', fmt(montantPourMembre(m))]);
   doc.autoTable({
-    head:[['Nom','Établissement','Téléphone','Cotisation mensuelle']],
+    head:[['N°','Nom','Établissement','Téléphone','Cotisation mensuelle']],
     body: rows, startY: 38, styles:{ fontSize:9 },
     headStyles:{ fillColor: statut==='ajour' ? [22,50,31] : [161,61,43] },
-    foot:[[`${liste.length} membre(s)`,'','','']],
+    foot:[['',`${liste.length} membre(s)`,'','','']],
     footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
@@ -1259,13 +1265,13 @@ function exportMembersPDF(){
   const numero = prochainNumeroDocument();
   addPdfWatermark(doc);
   addPdfHeader(doc, title, numero);
-  const rows = membresTries().map(m=>[
-    m.nom, m.etab||'—', m.tel||'—', m.dateAdh||'—',
+  const rows = membresTries().map((m, index)=>[
+    index+1, m.nom, m.etab||'—', m.tel||'—', m.dateAdh||'—',
     m.statut==='suspendu' ? 'Suspendu' : 'Actif',
     isAJour(m.id) ? 'À jour' : 'En retard'
   ]);
   doc.autoTable({
-    head:[['Nom','Établissement','Téléphone','Adhésion','Statut','Cotisation']],
+    head:[['N°','Nom','Établissement','Téléphone','Adhésion','Statut','Cotisation']],
     body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
@@ -1372,12 +1378,12 @@ function exportCotisationsPDF(){
   const total = rows.reduce((s,c)=>s+c.montant,0);
   doc.autoTable({
     startY: 38,
-    head:[['Date','Membre','Type','Période','Montant']],
-    body: rows.map(c=>{
+    head:[['N°','Date','Membre','Type','Période','Montant']],
+    body: rows.map((c, index)=>{
       const m = data.members.find(x=>x.id===c.membreId);
-      return [c.date, m?m.nom:'—', c.type, c.periode, fmt(c.montant)];
+      return [index+1, c.date, m?m.nom:'—', c.type, c.periode, fmt(c.montant)];
     }),
-    foot:[['','','','Total', fmt(total)]],
+    foot:[['','','','','Total', fmt(total)]],
     styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
@@ -1402,12 +1408,12 @@ function exportAidesPDF(){
   const total = rows.reduce((s,a)=>s+a.montant,0);
   doc.autoTable({
     startY: 38,
-    head:[['Date','Membre','Motif','Montant']],
-    body: rows.map(a=>{
+    head:[['N°','Date','Membre','Motif','Montant']],
+    body: rows.map((a, index)=>{
       const m = data.members.find(x=>x.id===a.membreId);
-      return [a.date, m?m.nom:'—', motifLabel(a.motif), fmt(a.montant)];
+      return [index+1, a.date, m?m.nom:'—', motifLabel(a.motif), fmt(a.montant)];
     }),
-    foot:[['','','Total', fmt(total)]],
+    foot:[['','','','Total', fmt(total)]],
     styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}, footStyles:{fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold'},
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
@@ -1515,12 +1521,12 @@ function exportPDF(){
   addPdfWatermark(doc);
   addPdfHeader(doc, title, numero);
   let solde = 0;
-  const rows = ops.map(op=>{
+  const rows = ops.map((op, index)=>{
     solde += op.montant;
-    return [op.date, op.membre, op.description, (op.montant<0?'-':'+') + fmt(Math.abs(op.montant)), fmt(solde)];
+    return [index+1, op.date, op.membre, op.description, (op.montant<0?'-':'+') + fmt(Math.abs(op.montant)), fmt(solde)];
   });
   doc.autoTable({
-    head:[['Date','Membre','Description','Montant','Solde cumulé']],
+    head:[['N°','Date','Membre','Description','Montant','Solde cumulé']],
     body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
@@ -1534,11 +1540,11 @@ function exportExcel(){
   if(ops.length===0){ showToast('Aucune opération à exporter'); return; }
   const numero = prochainNumeroDocument();
   let solde = 0;
-  const rows = ops.map(op=>{
+  const rows = ops.map((op, index)=>{
     solde += op.montant;
-    return { Date:op.date, Membre:op.membre, Description:op.description, Montant:op.montant, 'Solde cumulé':solde };
+    return { 'N°': index+1, Date:op.date, Membre:op.membre, Description:op.description, Montant:op.montant, 'Solde cumulé':solde };
   });
-  rows.unshift({ Date: numero, Membre: `Édité le ${new Date().toLocaleDateString('fr-FR')}`, Description:'', Montant:'', 'Solde cumulé':'' });
+  rows.unshift({ 'N°': numero, Date: `Édité le ${new Date().toLocaleDateString('fr-FR')}`, Membre:'', Description:'', Montant:'', 'Solde cumulé':'' });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Relevé');
@@ -1732,11 +1738,12 @@ function renderPointageMois(){
     return;
   }
   let total = 0;
-  cont.innerHTML = actifs.map(m=>{
+  cont.innerHTML = actifs.map((m, index)=>{
     const paye = aPayeMois(m.id, mois);
     if(paye) total += montantPourMembre(m);
     return `<label style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed var(--line); cursor:pointer;">
       <input type="checkbox" ${paye?'checked':''} onchange="togglePointage('${m.id}','${mois}')" style="width:18px; height:18px;">
+      <span style="width:22px; color:#8a8874; font-family:'IBM Plex Mono',monospace; font-size:12px;">${index+1}.</span>
       <span style="flex:1; font-family:'IBM Plex Sans',sans-serif;">${m.nom}</span>
       <span class="stamp ${paye?'paye':'retard'}">${fmt(montantPourMembre(m))}</span>
     </label>`;
@@ -1853,10 +1860,10 @@ function renderSuiviMensuel(){
     t.innerHTML = `<tbody><tr><td class="empty-state"><div class="icon">✎</div>Aucune donnée à afficher.</td></tr></tbody>`;
     return;
   }
-  let html = `<thead><tr><th style="position:sticky; left:0; background:var(--paper-2);">Membre</th>` +
+  let html = `<thead><tr><th>N°</th><th style="position:sticky; left:0; background:var(--paper-2);">Membre</th>` +
     moisListe.map(mo=>`<th style="text-align:center;">${mo}</th>`).join('') + `</tr></thead><tbody>`;
-  actifs.forEach(m=>{
-    html += `<tr><td class="name-cell" style="position:sticky; left:0; background:var(--paper-2);">${m.nom}</td>`;
+  actifs.forEach((m, index)=>{
+    html += `<tr><td class="name-cell">${index+1}</td><td class="name-cell" style="position:sticky; left:0; background:var(--paper-2);">${m.nom}</td>`;
     moisListe.forEach(mo=>{
       const paye = aPayeMois(m.id, mo);
       html += `<td style="text-align:center; cursor:pointer;" onclick="togglePointage('${m.id}','${mo}')">
