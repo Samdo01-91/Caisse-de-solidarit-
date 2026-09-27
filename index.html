@@ -1245,7 +1245,7 @@ function exportMembersStatutPDF(statut){
   const rows = liste.map((m, index) => [index+1, m.nom, m.etab||'—', m.tel||'—', fmt(montantPourMembre(m))]);
   doc.autoTable({
     head:[['N°','Nom','Établissement','Téléphone','Cotisation mensuelle']],
-    body: rows, startY: 38, styles:{ fontSize:9 },
+    body: rows, startY: 38, margin:{top:38}, styles:{ fontSize:9 },
     headStyles:{ fillColor: statut==='ajour' ? [22,50,31] : [161,61,43] },
     foot:[['',`${liste.length} membre(s)`,'','','']],
     footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
@@ -1272,7 +1272,7 @@ function exportMembersPDF(){
   ]);
   doc.autoTable({
     head:[['N°','Nom','Établissement','Téléphone','Adhésion','Statut','Cotisation']],
-    body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
+    body: rows, startY: 38, margin:{top:38}, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`liste-membres-${todayISO()}.pdf`);
@@ -1317,7 +1317,8 @@ function exportPointFinancierPDF(){
     ['Solde global de la caisse (cumulé)', fmt(t.solde)],
   ];
   doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
-    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
+    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} },
+    margin:{top:38}, didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } } });
 
   let y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
@@ -1329,7 +1330,8 @@ function exportPointFinancierPDF(){
       const m = data.members.find(x=>x.id===c.membreId);
       return [m?m.nom:'—', c.type, fmt(c.montant)];
     }) : [['Aucune cotisation ce mois','','']],
-    styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]}
+    styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]},
+    margin:{top:38}, didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
 
   y = doc.lastAutoTable.finalY + 8;
@@ -1342,7 +1344,8 @@ function exportPointFinancierPDF(){
       const m = data.members.find(x=>x.id===a.membreId);
       return [m?m.nom:'—', motifLabel(a.motif), fmt(a.montant)];
     }) : [['Aucun soutien ce mois','','']],
-    styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]}
+    styles:{fontSize:9}, headStyles:{fillColor:[161,61,43]},
+    margin:{top:38}, didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
 
   y = doc.lastAutoTable.finalY + 8;
@@ -1353,6 +1356,7 @@ function exportPointFinancierPDF(){
     head:[['Description','Montant']],
     body: depensesMois.length ? depensesMois.map(d=>[d.description, fmt(d.montant)]) : [['Aucune dépense ce mois','']],
     styles:{fontSize:9}, headStyles:{fillColor:[184,137,43]},
+    margin:{top:38},
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   addPdfFooter(doc);
@@ -1377,7 +1381,7 @@ function exportCotisationsPDF(){
   addPdfHeader(doc, title, numero);
   const total = rows.reduce((s,c)=>s+c.montant,0);
   doc.autoTable({
-    startY: 38,
+    startY: 38, margin:{top:38},
     head:[['N°','Date','Membre','Type','Période','Montant']],
     body: rows.map((c, index)=>{
       const m = data.members.find(x=>x.id===c.membreId);
@@ -1407,7 +1411,7 @@ function exportAidesPDF(){
   addPdfHeader(doc, title, numero);
   const total = rows.reduce((s,a)=>s+a.montant,0);
   doc.autoTable({
-    startY: 38,
+    startY: 38, margin:{top:38},
     head:[['N°','Date','Membre','Motif','Montant']],
     body: rows.map((a, index)=>{
       const m = data.members.find(x=>x.id===a.membreId);
@@ -1485,7 +1489,8 @@ function exportPointFinancierGlobalPDF(){
     ['Membres en retard ce mois-ci', `${t.enRetard} / ${t.actifs}`],
   ];
   doc.autoTable({ startY:49, body: resume, styles:{fontSize:9}, theme:'plain',
-    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} } });
+    columnStyles:{ 0:{fontStyle:'bold'}, 1:{halign:'right'} },
+    margin:{top:38}, didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } } });
 
   let y = doc.lastAutoTable.finalY + 8;
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
@@ -1498,7 +1503,7 @@ function exportPointFinancierGlobalPDF(){
     head:[['Mois','Total cotisations']],
     body: moisTries.length ? moisTries.map(mo => [mo, fmt(parMois[mo])]) : [['Aucune cotisation enregistrée','']],
     styles:{fontSize:9}, headStyles:{fillColor:[22,50,31]},
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
+    margin:{top:38}, didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   addPdfFooter(doc);
 
@@ -1527,7 +1532,7 @@ function exportPDF(){
   });
   doc.autoTable({
     head:[['N°','Date','Membre','Description','Montant','Solde cumulé']],
-    body: rows, startY: 38, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
+    body: rows, startY: 38, margin:{top:38}, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
     didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
   });
   doc.save(`releve-caisse-${todayISO()}.pdf`);
