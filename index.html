@@ -1056,6 +1056,12 @@ function renderDepensesTable(){
 }
 
 /* ---------- Totals ---------- */
+function totalAnticipePourMembre(membreId){
+  return data.cotisations
+    .filter(c => c.membreId===membreId && c.type==='mensuelle' && c.periode > c.date.slice(0,7))
+    .reduce((s,c)=>s+c.montant,0);
+}
+
 function totals(){
   const totCotis = data.cotisations.reduce((s,c)=>s+c.montant,0);
   const totAides = data.aides.reduce((s,a)=>s+a.montant,0);
@@ -1820,6 +1826,11 @@ function calculerTotalAnticipe(){
   let texte = `${moisListe.length} mois sélectionné(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]})`;
   if(dejaPayes) texte += `, dont ${dejaPayes} déjà payé(s)`;
   texte += ` — ${nouveaux} nouveau(x) mois seront enregistrés au total indiqué ci-dessus.`;
+
+  const soldeActuel = totalAnticipePourMembre(membreId);
+  if(soldeActuel > 0){
+    texte += ` Ce membre a déjà ${fmt(soldeActuel)} payé(s) d'avance ; ce nouveau paiement s'ajoutera à ce montant.`;
+  }
   recap.textContent = texte;
 }
 
@@ -1847,14 +1858,15 @@ function payerPlusieursMois(){
   if(ajoutes===0){ showToast('Tous ces mois étaient déjà marqués payés pour ce membre'); return; }
 
   const totalReel = montantParMois * ajoutes;
-  log(`Paiement anticipé de "${m.nom}" : ${ajoutes} mois pointé(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]}), total ${fmt(totalReel)}`);
+  const soldeCumule = totalAnticipePourMembre(membreId);
+  log(`Paiement anticipé de "${m.nom}" : ${ajoutes} mois pointé(s) (${moisListe[0]} → ${moisListe[moisListe.length-1]}), total ${fmt(totalReel)} — solde cumulé d'avance : ${fmt(soldeCumule)}`);
   saveData(); renderAll();
 
   document.getElementById('peNombreMois').value = '';
   document.getElementById('peMontantTotal').value = '';
   document.getElementById('peMontantTotal').dataset.auto = '1';
   document.getElementById('peRecapitulatif').textContent = '';
-  showToast(`${ajoutes} mois marqué(s) comme payés pour ${m.nom} — total ${fmt(totalReel)}`);
+  showToast(`${ajoutes} mois marqué(s) pour ${m.nom} — solde cumulé d'avance : ${fmt(soldeCumule)}`);
 }
 
 function renderSuiviMensuel(){
