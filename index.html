@@ -445,8 +445,12 @@
       </div>
     </div>
     <div class="panel">
-      <h3>Aperçu du relevé</h3>
+      <h3>Aperçu du relevé — récapitulatif par membre</h3>
       <div class="table-wrap"><table id="tblReleve"></table></div>
+    </div>
+    <div class="panel">
+      <h3>Détail des opérations (par ordre alphabétique)</h3>
+      <div class="table-wrap"><table id="tblReleveDetail"></table></div>
     </div>
   </section>
 
@@ -1138,7 +1142,7 @@ function allOperations(){
   const ops = [];
   data.cotisations.forEach(c=>{
     const m = data.members.find(x=>x.id===c.membreId);
-    ops.push({ date:c.date, type:'cotisation', membreId:c.membreId, membre:m?m.nom:'—', description:`Cotisation ${c.type} (${c.periode})`, montant:c.montant });
+    ops.push({ date:c.date, type:'cotisation', membreId:c.membreId, membre:m?m.nom:'—', description:`Cotisation ${c.type} (${c.periode})`, montant:c.montant, periode:c.periode, cotType:c.type });
   });
   data.aides.forEach(a=>{
     const m = data.members.find(x=>x.id===a.membreId);
@@ -1164,28 +1168,71 @@ function filteredOperations(){
   });
 }
 
+function resumeParMembre(ops){
+  const membreFiltre = document.getElementById('rMembre').value;
+  const liste = membresTries().filter(m => !membreFiltre || m.id===membreFiltre);
+  return liste.map(m=>{
+    const mesOps = ops.filter(op=>op.membreId===m.id);
+    const cotis = mesOps.filter(op=>op.type==='cotisation');
+    const moisPayes = new Set(cotis.filter(op=>op.cotType==='mensuelle').map(op=>op.periode)).size;
+    const totalCotis = cotis.reduce((s,op)=>s+op.montant,0);
+    const totalSoutiens = mesOps.filter(op=>op.type==='aide').reduce((s,op)=>s-op.montant,0);
+    return { id:m.id, nom:m.nom, moisPayes, totalCotis, totalSoutiens };
+  });
+}
+
+function formatCotisationMembre(r){
+  return `(${r.moisPayes}) ${fmt(r.totalCotis)}`;
+}
+
+function operationsTrieesParNom(ops){
+  return [...ops].sort((a,b)=>{
+    const aCaisse = a.membreId===null, bCaisse = b.membreId===null;
+    if(aCaisse !== bCaisse) return aCaisse ? 1 : -1;
+    const c = a.membre.localeCompare(b.membre, 'fr', { sensitivity:'base' });
+    return c !== 0 ? c : a.date.localeCompare(b.date);
+  });
+}
+
 function renderReleve(){
   const ops = filteredOperations();
   const t = document.getElementById('tblReleve');
+  const td = document.getElementById('tblReleveDetail');
   if(ops.length===0){
     t.innerHTML = `<tbody><tr><td class="empty-state"><div class="icon">✎</div>Aucune opération pour ces filtres.</td></tr></tbody>`;
+    td.innerHTML = '';
     return;
   }
-  let solde = 0;
-  let html = `<thead><tr><th>N°</th><th>Date</th><th>Membre</th><th>Description</th><th>Montant</th><th>Solde cumulé</th></tr></thead><tbody>`;
-  ops.forEach((op, index)=>{
-    solde += op.montant;
+
+  const resume = resumeParMembre(ops);
+  let totMois = 0, totCotis = 0, totSoutiens = 0;
+  let html = `<thead><tr><th>N°</th><th>Cotisation : (mois) montant</th><th>Nom</th><th>Soutiens reçus</th></tr></thead><tbody>`;
+  resume.forEach((r, index)=>{
+    totMois += r.moisPayes; totCotis += r.totalCotis; totSoutiens += r.totalSoutiens;
     html += `<tr>
+      <td class="name-cell">${index+1}</td>
+      <td>${formatCotisationMembre(r)}</td>
+      <td class="name-cell">${r.nom}</td>
+      <td>${r.totalSoutiens ? fmt(r.totalSoutiens) : '—'}</td>
+    </tr>`;
+  });
+  html += `<tr style="font-weight:600;"><td></td><td>(${totMois}) ${fmt(totCotis)}</td><td>Total</td><td>${fmt(totSoutiens)}</td></tr></tbody>`;
+  t.innerHTML = html;
+
+  const detail = operationsTrieesParNom(ops);
+  let htmlD = `<thead><tr><th>N°</th><th>Date</th><th>Membre</th><th>Description</th><th>Montant</th></tr></thead><tbody>`;
+  detail.forEach((op, index)=>{
+    htmlD += `<tr>
       <td class="name-cell">${index+1}</td>
       <td>${op.date}</td>
       <td class="name-cell">${op.membre}</td>
       <td>${op.description}</td>
       <td style="color:${op.montant<0?'var(--brick)':'var(--ink-2)'}">${op.montant<0?'−':'+'}${fmt(Math.abs(op.montant))}</td>
-      <td>${fmt(solde)}</td>
     </tr>`;
   });
-  html += `</tbody>`;
-  t.innerHTML = html;
+  const solde = ops.reduce((s,op)=>s+op.montant,0);
+  htmlD += `<tr style="font-weight:600;"><td></td><td></td><td></td><td>Solde des opérations</td><td>${fmt(solde)}</td></tr></tbody>`;
+  td.innerHTML = htmlD;
 }
 
 function addPdfWatermark(doc){
@@ -1525,40 +1572,77 @@ function exportPointFinancierGlobalPDF(){
 function exportPDF(){
   const ops = filteredOperations();
   if(ops.length===0){ showToast('Aucune opération à exporter'); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const title = `Relevé — ${data.appName || 'Caisse de Solidarité'}`;
-  const numero = prochainNumeroDocument();
-  addPdfWatermark(doc);
-  addPdfHeader(doc, title, numero);
-  let solde = 0;
-  const rows = ops.map((op, index)=>{
-    solde += op.montant;
-    return [index+1, op.date, op.membre, op.description, (op.montant<0?'-':'+') + fmt(Math.abs(op.montant)), fmt(solde)];
-  });
-  doc.autoTable({
-    head:[['N°','Date','Membre','Description','Montant','Solde cumulé']],
-    body: rows, startY: 38, margin:{top:38}, styles:{ fontSize:9 }, headStyles:{ fillColor:[22,50,31] },
-    didDrawPage: (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } }
-  });
-  doc.save(`releve-caisse-${todayISO()}.pdf`);
-  log('Export PDF du relevé');
-  saveData();
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const title = `Relevé — ${data.appName || 'Caisse de Solidarité'}`;
+    const numero = prochainNumeroDocument();
+    addPdfWatermark(doc);
+    addPdfHeader(doc, title, numero);
+    const redessiner = (d) => { addPdfFooter(doc); if(d.pageNumber>1){ addPdfWatermark(doc); addPdfHeader(doc, title, numero); } };
+
+    const resume = resumeParMembre(ops);
+    let totMois = 0, totCotis = 0, totSoutiens = 0;
+    const rowsResume = resume.map((r, index)=>{
+      totMois += r.moisPayes; totCotis += r.totalCotis; totSoutiens += r.totalSoutiens;
+      return [index+1, formatCotisationMembre(r), r.nom, r.totalSoutiens ? fmt(r.totalSoutiens) : '—'];
+    });
+    doc.autoTable({
+      head:[['N°','Cotisation : (mois) montant','Nom','Soutiens reçus']],
+      body: rowsResume,
+      foot:[['', `(${totMois}) ${fmt(totCotis)}`, 'Total', fmt(totSoutiens)]],
+      startY: 38, margin:{top:38}, styles:{ fontSize:9 },
+      headStyles:{ fillColor:[22,50,31] },
+      footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
+      didDrawPage: redessiner
+    });
+
+    const detail = operationsTrieesParNom(ops);
+    const solde = ops.reduce((s,op)=>s+op.montant,0);
+    doc.autoTable({
+      head:[
+        [{ content:'Détail des opérations (par ordre alphabétique)', colSpan:5, styles:{ halign:'left', fillColor:[184,137,43] } }],
+        ['N°','Date','Membre','Description','Montant']
+      ],
+      body: detail.map((op, index)=>[index+1, op.date, op.membre, op.description, (op.montant<0?'-':'+') + fmt(Math.abs(op.montant))]),
+      foot:[['','','','Solde des opérations', fmt(solde)]],
+      startY: doc.lastAutoTable.finalY + 10, margin:{top:38}, styles:{ fontSize:9 },
+      headStyles:{ fillColor:[22,50,31] },
+      footStyles:{ fillColor:[239,230,208], textColor:[22,50,31], fontStyle:'bold' },
+      didDrawPage: redessiner
+    });
+
+    doc.save(`releve-caisse-${todayISO()}.pdf`);
+    log('Export PDF du relevé');
+    saveData();
+  }catch(e){
+    console.error(e);
+    showToast('Erreur lors de la génération du PDF : ' + e.message);
+  }
 }
 
 function exportExcel(){
   const ops = filteredOperations();
   if(ops.length===0){ showToast('Aucune opération à exporter'); return; }
   const numero = prochainNumeroDocument();
-  let solde = 0;
-  const rows = ops.map((op, index)=>{
-    solde += op.montant;
-    return { 'N°': index+1, Date:op.date, Membre:op.membre, Description:op.description, Montant:op.montant, 'Solde cumulé':solde };
+  const edite = `Édité le ${new Date().toLocaleDateString('fr-FR')}`;
+
+  const resume = resumeParMembre(ops);
+  let totMois = 0, totCotis = 0, totSoutiens = 0;
+  const rowsResume = resume.map((r, index)=>{
+    totMois += r.moisPayes; totCotis += r.totalCotis; totSoutiens += r.totalSoutiens;
+    return { 'N°': index+1, 'Cotisation : (mois) montant': formatCotisationMembre(r), Nom: r.nom, 'Soutiens reçus': r.totalSoutiens || '' };
   });
-  rows.unshift({ 'N°': numero, Date: `Édité le ${new Date().toLocaleDateString('fr-FR')}`, Membre:'', Description:'', Montant:'', 'Solde cumulé':'' });
-  const ws = XLSX.utils.json_to_sheet(rows);
+  rowsResume.push({ 'N°':'', 'Cotisation : (mois) montant': `(${totMois}) ${fmt(totCotis)}`, Nom:'Total', 'Soutiens reçus': totSoutiens });
+  rowsResume.unshift({ 'N°': numero, 'Cotisation : (mois) montant': edite, Nom:'', 'Soutiens reçus':'' });
+
+  const detail = operationsTrieesParNom(ops);
+  const rowsDetail = detail.map((op, index)=>({ 'N°': index+1, Date:op.date, Membre:op.membre, Description:op.description, Montant:op.montant }));
+  rowsDetail.unshift({ 'N°': numero, Date: edite, Membre:'', Description:'', Montant:'' });
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Relevé');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsResume), 'Récapitulatif');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsDetail), 'Détail');
   XLSX.writeFile(wb, `releve-caisse-${todayISO()}.xlsx`);
   log('Export Excel du relevé');
   saveData();
